@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoFinds - Your Sustainable Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fbf7; /* Off-white background */
+            color: #333;
+        }
+        .primary-bg {
+            background-color: #55964f; /* Light green */
+        }
+        .primary-text {
+            color: #55964f;
+        }
+        .secondary-bg {
+            background-color: #a7d08f; /* Lighter green */
+        }
+        .btn-primary {
+            @apply px-6 py-2 rounded-full font-semibold transition-all duration-300 transform hover:scale-105;
+            background-color: #55964f;
+            color: white;
+        }
+        .btn-secondary {
+            @apply px-6 py-2 rounded-full font-semibold transition-all duration-300 transform hover:scale-105;
+            background-color: #a7d08f;
+            color: #333;
+        }
+        input, textarea, select {
+            @apply w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors duration-200;
+        }
+        .card {
+            @apply bg-white p-4 rounded-3xl shadow-lg transition-transform duration-300 ease-in-out hover:scale-[1.02] cursor-pointer;
+        }
+        .loading-spinner {
+            border-top-color: #55964f;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .leaf-spin {
+            animation: leaf-spin 2s ease-in-out infinite;
+        }
+        @keyframes leaf-spin {
+            0% { transform: scale(0.5) rotate(0deg); opacity: 0; }
+            50% { transform: scale(1.2) rotate(15deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .hidden-transition {
+            opacity: 0;
+            transition: opacity 1s ease-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50 transition-opacity duration-1000">
+        <div class="flex items-center space-x-4 animate-pulse">
+            <span class="text-6xl primary-text"><i class="fa-solid fa-leaf leaf-spin"></i></span>
+            <h1 class="text-6xl font-bold primary-text">EcoFinds</h1>
+        </div>
+    </div>
+
+    <!-- Modal for messages and confirmations -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full transform transition-all scale-100 opacity-100">
+            <p id="modal-message" class="text-center text-lg mb-4"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="modal-close" class="btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app" class="flex flex-col flex-1 hidden hidden-transition">
+        <!-- Header -->
+        <header id="main-header" class="bg-white text-black p-4 shadow-md sticky top-0 z-40 hidden">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-2 cursor-pointer" onclick="navigate('home')">
+                    <span class="text-3xl primary-text"><i class="fa-solid fa-leaf"></i></span>
+                    <h1 class="text-3xl font-bold primary-text">EcoFinds</h1>
+                </div>
+                <div class="flex-1 max-w-xl mx-4 relative">
+                    <input type="text" id="header-search-input" placeholder="Search eco-friendly products..." class="w-full p-2 pl-10 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors duration-200">
+                    <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
+                <nav class="flex items-center space-x-6">
+                    <button id="nav-categories" class="font-medium hover:underline hidden md:block" onclick="navigate('home')">Categories</button>
+                    <button id="nav-favorites-icon" class="text-2xl primary-text hidden" onclick="navigate('favorites')"><i class="fa-solid fa-heart"></i></button>
+                    <button id="nav-cart-icon" class="text-2xl primary-text hidden" onclick="navigate('cart')"><i class="fa-solid fa-cart-shopping"></i></button>
+                    <button id="nav-purchases-icon" class="text-2xl primary-text hidden" onclick="navigate('previous-purchases')"><i class="fa-solid fa-receipt"></i></button>
+                    <button id="nav-profile-icon" class="text-2xl primary-text hidden" onclick="navigate('user-dashboard')"><i class="fa-solid fa-user-circle"></i></button>
+                    <button id="nav-auth" class="btn-secondary px-4 py-1 text-sm" onclick="toggleAuth()">Login / Sign Up</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="content" class="flex-1"></main>
+
+    </div>
+    
+    <script>
+        // State Management
+        const state = {
+            currentPage: 'home',
+            isAuthenticated: false,
+            currentUser: null,
+            products: [],
+            cart: [],
+            favorites: [],
+            previousPurchases: [],
+            isModalOpen: false,
+            modalMessage: '',
+        };
+
+        // DOM Elements
+        const splashScreen = document.getElementById('splash-screen');
+        const app = document.getElementById('app');
+        const content = document.getElementById('content');
+        const mainHeader = document.getElementById('main-header');
+        const navAuth = document.getElementById('nav-auth');
+        const navProfileIcon = document.getElementById('nav-profile-icon');
+        const navCartIcon = document.getElementById('nav-cart-icon');
+        const navFavoritesIcon = document.getElementById('nav-favorites-icon');
+        const navPurchasesIcon = document.getElementById('nav-purchases-icon');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalMessage = document.getElementById('modal-message');
+        const modalClose = document.getElementById('modal-close');
+        const headerSearchInput = document.getElementById('header-search-input');
+
+        // Initial Mock Data
+        const categories = ['Apparel', 'Books', 'Electronics', 'Furniture', 'Home Goods', 'Sports'];
+        let mockProducts = [
+            { id: '1', userId: 'user1', title: 'Vintage Leather Jacket', description: 'A timeless vintage leather jacket, well-maintained and stylish.', price: 75, category: 'Apparel', image: 'https://placehold.co/600x400/a7d08f/333?text=Vintage+Jacket' },
+            { id: '2', userId: 'user2', title: 'Hardcover Classic Book Set', description: 'A beautiful set of classic novels in hardcover.', price: 45, category: 'Books', image: 'https://placehold.co/600x400/a7d08f/333?text=Classic+Books' },
+            { id: '3', userId: 'user1', title: 'Smartwatch', description: 'Used smartwatch in great condition, comes with charger.', price: 150, category: 'Electronics', image: 'https://placehold.co/600x400/a7d08f/333?text=Smartwatch' },
+            { id: '4', userId: 'user3', title: 'Wooden Coffee Table', description: 'Handcrafted wooden coffee table, perfect for a rustic living room.', price: 90, category: 'Furniture', image: 'https://placehold.co/600x400/a7d08f/333?text=Coffee+Table' },
+            { id: '5', userId: 'user1', title: 'Antique Desk Lamp', description: 'A beautiful brass lamp from the 1920s. Adds character to any room.', price: 65, category: 'Home Goods', image: 'https://placehold.co/600x400/a7d08f/333?text=Desk+Lamp' },
+            { id: '6', userId: 'user2', title: 'Acoustic Guitar', description: 'Barely used acoustic guitar, perfect for beginners.', price: 180, category: 'Electronics', image: 'https://placehold.co/600x400/a7d08f/333?text=Acoustic+Guitar' },
+            { id: '7', userId: 'user3', title: 'Running Shoes', description: 'Comfortable running shoes, lightly used. Size 10.', price: 30, category: 'Apparel', image: 'https://placehold.co/600x400/a7d08f/333?text=Running+Shoes' },
+            { id: '8', userId: 'user1', title: 'Dumbbell Set', description: 'A set of 20kg dumbbells, great for home workouts.', price: 50, category: 'Sports', image: 'https://placehold.co/600x400/a7d08f/333?text=Dumbbell+Set' },
+            { id: '9', userId: 'user2', title: 'Gardening Tools', description: 'A starter kit of essential gardening tools.', price: 25, category: 'Home Goods', image: 'https://placehold.co/600x400/a7d08f/333?text=Gardening+Tools' }
+        ];
+
+        // Functions to manage state and rendering
+        function showModal(message, onClose) {
+            modalMessage.textContent = message;
+            modalOverlay.classList.remove('hidden');
+            modalOverlay.classList.add('flex');
+            modalClose.onclick = () => {
+                modalOverlay.classList.remove('flex');
+                modalOverlay.classList.add('hidden');
+                if (onClose) onClose();
+            };
+        }
+
+        function updateAuthState(user) {
+            state.isAuthenticated = !!user;
+            state.currentUser = user;
+            if (user) {
+                navAuth.textContent = 'Logout';
+                navAuth.classList.remove('btn-secondary');
+                navAuth.classList.add('font-medium', 'hover:underline');
+                navProfileIcon.classList.remove('hidden');
+                navCartIcon.classList.remove('hidden');
+                navFavoritesIcon.classList.remove('hidden');
+                navPurchasesIcon.classList.remove('hidden');
+            } else {
+                navAuth.textContent = 'Login / Sign Up';
+                navAuth.classList.remove('font-medium', 'hover:underline');
+                navAuth.classList.add('btn-secondary');
+                navProfileIcon.classList.add('hidden');
+                navCartIcon.classList.add('hidden');
+                navFavoritesIcon.classList.add('hidden');
+                navPurchasesIcon.classList.add('hidden');
+            }
+        }
+
+        function toggleAuth() {
+            if (state.isAuthenticated) {
+                state.currentUser = null;
+                updateAuthState(null);
+                showModal('Logged out successfully.', () => navigate('home'));
+            } else {
+                navigate('login');
+            }
+        }
+
+        function showLoading() {
+            content.innerHTML = `
+                <div class="flex flex-col items-center justify-center min-h-[50vh]">
+                    <div class="loading-spinner w-16 h-16 rounded-full border-4 border-gray-200"></div>
+                    <p class="mt-4 text-gray-500">Loading...</p>
+                </div>
+            `;
+        }
+        
+        function toggleHeaderVisibility(show) {
+            if (show) {
+                mainHeader.classList.remove('hidden');
+            } else {
+                mainHeader.classList.add('hidden');
+            }
+        }
+
+        function navigate(page, params = {}) {
+            showLoading();
+            setTimeout(() => {
+                state.currentPage = page;
+                state.currentParams = params;
+                render();
+            }, 500);
+        }
+
+        function render() {
+            content.innerHTML = ''; // Clear content
+            toggleHeaderVisibility(state.currentPage !== 'login' && state.currentPage !== 'create-profile');
+
+            switch (state.currentPage) {
+                case 'login': renderLogin(); break;
+                case 'home': renderHome(); break;
+                case 'add-product': renderAddProduct(); break;
+                case 'my-listings': renderMyListings(); break;
+                case 'product-detail': renderProductDetail(state.currentParams.id); break;
+                case 'edit-product': renderEditProduct(state.currentParams.id); break;
+                case 'user-dashboard': renderUserDashboard(); break;
+                case 'create-profile': renderCreateProfile(); break;
+                case 'favorites': renderFavorites(); break;
+                case 'cart': renderCart(); break;
+                case 'previous-purchases': renderPreviousPurchases(); break;
+            }
+        }
+
+        function renderLogin() {
+            if (state.isAuthenticated) {
+                showModal('You are already logged in.', () => navigate('home'));
+                return;
+            }
+            content.innerHTML = `
+                <div class="flex items-center justify-center p-8 min-h-screen">
+                    <div class="card w-full max-w-lg p-8">
+                        <div class="flex flex-col items-center justify-center mb-6">
+                            <span class="text-6xl primary-text mb-2"><i class="fa-solid fa-leaf"></i></span>
+                            <h2 class="text-3xl font-bold primary-text">EcoFinds</h2>
+                        </div>
+                        <form id="login-form" class="space-y-4">
+                            <div>
+                                <label for="email" class="block text-gray-600 mb-1">Email</label>
+                                <input type="email" id="email" placeholder="email@example.com" class="w-full" required>
+                            </div>
+                            <div>
+                                <label for="password" class="block text-gray-600 mb-1">Password</label>
+                                <input type="password" id="password" placeholder="••••••••" class="w-full" required>
+                            </div>
+                            <button type="submit" class="btn-primary w-full">Login</button>
+                        </form>
+                        <p class="text-center mt-4 text-gray-600">Don't have an account? <a href="#" id="signup-link" class="font-semibold primary-text hover:underline">Sign Up</a></p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('login-form').onsubmit = (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                if (email) {
+                    const userId = `user${Math.floor(Math.random() * 1000)}`;
+                    const user = { userId: userId, username: email.split('@')[0], email: email, bio: 'A new user on EcoFinds!' };
+                    updateAuthState(user);
+                    showModal('Login successful!', () => navigate('home'));
+                } else {
+                    showModal('Please enter a valid email.');
+                }
+            };
+            document.getElementById('signup-link').onclick = () => {
+                navigate('create-profile');
+            };
+        }
+
+        function renderCreateProfile() {
+            content.innerHTML = `
+                <div class="flex items-center justify-center p-8 min-h-screen">
+                    <div class="card w-full max-w-lg p-8">
+                        <div class="flex flex-col items-center justify-center mb-6">
+                            <span class="text-6xl primary-text mb-2"><i class="fa-solid fa-leaf"></i></span>
+                            <h2 class="text-3xl font-bold primary-text">EcoFinds</h2>
+                        </div>
+                        <h3 class="text-2xl font-bold text-center mb-6 primary-text">Create Your Profile</h3>
+                        <form id="create-profile-form" class="space-y-4">
+                            <div>
+                                <label for="profile-username" class="block text-gray-600 mb-1">Username</label>
+                                <input type="text" id="profile-username" placeholder="Choose a username" required>
+                            </div>
+                            <div>
+                                <label for="profile-email" class="block text-gray-600 mb-1">Email</label>
+                                <input type="email" id="profile-email" placeholder="email@example.com" required>
+                            </div>
+                            <div>
+                                <label for="profile-phone" class="block text-gray-600 mb-1">Phone Number</label>
+                                <input type="tel" id="profile-phone" placeholder="e.g., 555-123-4567">
+                            </div>
+                            <div>
+                                <label for="profile-address" class="block text-gray-600 mb-1">Address</label>
+                                <textarea id="profile-address" rows="2" placeholder="Your full address"></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary w-full">Create Profile</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.getElementById('create-profile-form').onsubmit = (e) => {
+                e.preventDefault();
+                const username = document.getElementById('profile-username').value;
+                const email = document.getElementById('profile-email').value;
+                const phone = document.getElementById('profile-phone').value;
+                const address = document.getElementById('profile-address').value;
+                
+                const userId = `user${Date.now()}`;
+                const user = { userId, username, email, phone, address, bio: 'New user.' };
+
+                updateAuthState(user);
+                showModal('Profile created successfully! You are now logged in.', () => navigate('home'));
+            };
+        }
+
+        function renderHome() {
+            content.innerHTML = `
+                <!-- Product Listing Section with Filters and Search -->
+                <div class="p-8 max-w-7xl mx-auto">
+                    <div class="flex flex-col md:flex-row items-center justify-between mb-6">
+                        <h2 class="text-3xl font-bold primary-text mb-4 md:mb-0">Featured Listings</h2>
+                        <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 w-full md:w-auto">
+                            <div class="relative w-full md:w-40">
+                                <select id="category-filter-select" class="w-full p-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400 appearance-none bg-white">
+                                    <option value="">All Categories</option>
+                                    ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                                </select>
+                                <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                            </div>
+                            <div class="flex items-center space-x-2 w-full md:w-auto">
+                                <input type="number" id="min-price" placeholder="Min Price" class="w-1/2 p-2 rounded-full text-sm">
+                                <input type="number" id="max-price" placeholder="Max Price" class="w-1/2 p-2 rounded-full text-sm">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+                </div>
+                <!-- Add New Product Floating Action Button -->
+                <div class="fixed bottom-6 right-6 z-30">
+                    <button class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg transform hover:scale-110 transition-transform duration-200" onclick="navigate('add-product')">
+                        +
+                    </button>
+                </div>
+            `;
+            // Add event listeners for search and filter
+            const filterProducts = () => {
+                const query = headerSearchInput.value.toLowerCase();
+                const category = document.getElementById('category-filter-select').value;
+                const minPrice = parseFloat(document.getElementById('min-price').value) || 0;
+                const maxPrice = parseFloat(document.getElementById('max-price').value) || Infinity;
+
+                const filtered = mockProducts.filter(p => {
+                    const matchesSearch = p.title.toLowerCase().includes(query);
+                    const matchesCategory = category === "" || p.category === category;
+                    const matchesPrice = p.price >= minPrice && p.price <= maxPrice;
+                    return matchesSearch && matchesCategory && matchesPrice;
+                });
+                renderProductList(filtered);
+            };
+
+            headerSearchInput.addEventListener('input', filterProducts);
+            document.getElementById('category-filter-select').addEventListener('change', filterProducts);
+            document.getElementById('min-price').addEventListener('input', filterProducts);
+            document.getElementById('max-price').addEventListener('input', filterProducts);
+            
+            // Populate the product list with mock data
+            renderProductList(mockProducts);
+        }
+        
+        function renderProductList(products) {
+            const listContainer = document.getElementById('product-list');
+            if (!listContainer) return;
+            listContainer.innerHTML = '';
+            if (products.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-500 col-span-full">No products found.</p>';
+            }
+            products.forEach(product => {
+                const isFavorite = state.favorites.some(fav => fav.id === product.id);
+                const heartClass = isFavorite ? 'fa-solid text-green-700' : 'fa-regular text-gray-400 hover:text-green-500';
+
+                const card = document.createElement('div');
+                card.className = 'card relative';
+                card.innerHTML = `
+                    <button class="absolute top-4 right-4 z-10 text-2xl" onclick="event.stopPropagation(); toggleFavorite('${product.id}')">
+                        <i class="fa-heart ${heartClass}"></i>
+                    </button>
+                    <img src="${product.image}" alt="${product.title}" class="w-full h-48 object-cover rounded-t-2xl mb-2">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold mb-1">${product.title}</h3>
+                        <p class="text-lg font-semibold primary-text">$${product.price.toFixed(2)}</p>
+                    </div>
+                `;
+                card.onclick = () => navigate('product-detail', { id: product.id });
+                listContainer.appendChild(card);
+            });
+        }
+
+        function toggleFavorite(id) {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to add items to your favorites.', () => navigate('login'));
+                return;
+            }
+            const productIndex = state.favorites.findIndex(fav => fav.id === id);
+            if (productIndex === -1) {
+                // Not in favorites, add it
+                const product = mockProducts.find(p => p.id === id);
+                if (product) {
+                    state.favorites.push(product);
+                    showModal('Product added to favorites!', () => renderHome());
+                }
+            } else {
+                // In favorites, remove it
+                state.favorites.splice(productIndex, 1);
+                showModal('Product removed from favorites!', () => renderHome());
+            }
+        }
+        
+        function filterProducts(category) {
+            if (category === 'all') {
+                renderProductList();
+            } else {
+                const filtered = mockProducts.filter(p => p.category === category);
+                renderProductList('', filtered);
+            }
+        }
+
+        async function generateProductDescription() {
+            const title = document.getElementById('product-title').value;
+            const category = document.getElementById('product-category').value;
+            const descriptionField = document.getElementById('product-description');
+            const generateBtn = document.getElementById('generate-description-btn');
+            
+            if (!title || !category) {
+                showModal('Please enter a product title and select a category first.');
+                return;
+            }
+
+            generateBtn.innerText = 'Generating...';
+            generateBtn.disabled = true;
+            descriptionField.disabled = true;
+
+            const userQuery = `Write a short, compelling, and eco-friendly product description for a second-hand item. Title: "${title}", Category: "${category}". The description should be about 1-2 sentences.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: 'Act as a professional copywriter specializing in eco-friendly products. Your goal is to write a concise and persuasive description that promotes a circular economy.' }]
+                },
+                model: 'gemini-2.5-flash-preview-05-20',
+            };
+
+            const apiKey = ""; // Canvas will provide this in runtime
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const generatedText = result?.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not generate a description. Please try again.';
+                descriptionField.value = generatedText;
+            } catch (error) {
+                console.error('API Error:', error);
+                showModal('Failed to generate description. Please check your internet connection and try again.');
+                descriptionField.value = '';
+            } finally {
+                generateBtn.innerText = 'Generate Description ✨';
+                generateBtn.disabled = false;
+                descriptionField.disabled = false;
+            }
+        }
+
+        async function generateProductImage() {
+            const title = document.getElementById('product-title').value;
+            const category = document.getElementById('product-category').value;
+            const imageDisplay = document.getElementById('generated-image-display');
+            const generateImageBtn = document.getElementById('generate-image-btn');
+            
+            if (!title || !category) {
+                showModal('Please enter a product title and select a category first.');
+                return;
+            }
+
+            generateImageBtn.innerHTML = 'Generating...<span class="loading-spinner w-4 h-4 rounded-full border-2 border-gray-200 border-t-white ml-2"></span>';
+            generateImageBtn.disabled = true;
+            imageDisplay.innerHTML = '';
+            
+            const prompt = `A professional, high-quality photograph of a single second-hand product for sale. The product is a "${title}" from the category "${category}". The photo should be clear, well-lit, and show the product on a simple, eco-friendly background.`;
+
+            const payload = {
+                instances: { prompt: prompt },
+                parameters: { "sampleCount": 1 }
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const base64Data = result?.predictions?.[0]?.bytesBase64Encoded;
+
+                if (base64Data) {
+                    const imageUrl = `data:image/png;base64,${base64Data}`;
+                    imageDisplay.innerHTML = `<img src="${imageUrl}" alt="Generated image of ${title}" class="w-full h-48 object-cover rounded-xl mt-4">`;
+                    state.newProductImage = imageUrl;
+                } else {
+                    imageDisplay.innerHTML = '<p class="text-center text-red-500 mt-4">Failed to generate image.</p>';
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                imageDisplay.innerHTML = '<p class="text-center text-red-500 mt-4">An error occurred. Please try again.</p>';
+            } finally {
+                generateImageBtn.innerHTML = 'Generate Image ✨';
+                generateImageBtn.disabled = false;
+            }
+        }
+        
+        function renderAddProduct() {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to add a product.', () => navigate('login'));
+                return;
+            }
+            content.innerHTML = `
+                <div class="max-w-xl mx-auto p-4">
+                    <h2 class="text-3xl font-bold mb-6 text-center primary-text">Add New Product</h2>
+                    <form id="add-product-form" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-title">Product Title</label>
+                            <input type="text" id="product-title" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-category">Category</label>
+                            <select id="product-category" required>
+                                ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="flex flex-col space-y-4">
+                            <button type="button" id="generate-image-btn" class="btn-secondary w-full">Generate Image ✨</button>
+                            <div id="generated-image-display" class="flex justify-center items-center w-full h-48 bg-gray-100 rounded-xl">
+                                <p class="text-gray-500">Image will appear here</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button type="button" id="generate-description-btn" class="btn-secondary w-full">Generate Description ✨</button>
+                        </div>
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-description">Description</label>
+                            <textarea id="product-description" rows="4" required></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-price">Price ($)</label>
+                            <input type="number" id="product-price" step="0.01" required>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">Submit Listing</button>
+                    </form>
+                </div>
+            `;
+            // Add event listener for the new Gemini buttons
+            document.getElementById('generate-description-btn').addEventListener('click', generateProductDescription);
+            document.getElementById('generate-image-btn').addEventListener('click', generateProductImage);
+
+            document.getElementById('add-product-form').onsubmit = (e) => {
+                e.preventDefault();
+                if (!state.newProductImage) {
+                    showModal('Please generate an image for the product before submitting.');
+                    return;
+                }
+                const newProduct = {
+                    id: Date.now().toString(),
+                    userId: state.currentUser.userId,
+                    title: document.getElementById('product-title').value,
+                    description: document.getElementById('product-description').value,
+                    category: document.getElementById('product-category').value,
+                    price: parseFloat(document.getElementById('product-price').value),
+                    image: state.newProductImage
+                };
+                mockProducts.unshift(newProduct);
+                state.newProductImage = null; // Clear image for next listing
+                showModal('Product added successfully!', () => navigate('my-listings'));
+            };
+        }
+        
+        function renderMyListings() {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to view your listings.', () => navigate('login'));
+                return;
+            }
+            content.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 primary-text">My Listings</h2>
+                <div id="my-listings-list" class="grid grid-cols-1 gap-6"></div>
+            `;
+            const userProducts = mockProducts.filter(p => p.userId === state.currentUser.userId);
+            const listContainer = document.getElementById('my-listings-list');
+            if (userProducts.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-500">You have no active listings. <a href="#" onclick="navigate(\'add-product\')" class="primary-text font-semibold">Add one now!</a></p>';
+            }
+            userProducts.forEach(product => {
+                const item = document.createElement('div');
+                item.className = 'card flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4';
+                item.innerHTML = `
+                    <img src="${product.image}" alt="${product.title}" class="w-full md:w-32 h-32 object-cover rounded-xl flex-shrink-0">
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold">${product.title}</h3>
+                        <p class="text-lg font-semibold primary-text">$${product.price.toFixed(2)}</p>
+                    </div>
+                    <div class="flex flex-col space-y-2">
+                        <button class="btn-secondary px-4 py-2" onclick="navigate('edit-product', { id: '${product.id}' })">Edit</button>
+                        <button class="btn-primary px-4 py-2" onclick="deleteProduct('${product.id}')">Delete</button>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+        
+        function renderEditProduct(id) {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to edit products.', () => navigate('login'));
+                return;
+            }
+            const product = mockProducts.find(p => p.id === id);
+            if (!product || product.userId !== state.currentUser.userId) {
+                showModal('Product not found or you don\'t have permission to edit it.', () => navigate('my-listings'));
+                return;
+            }
+
+            content.innerHTML = `
+                <div class="max-w-xl mx-auto p-4">
+                    <h2 class="text-3xl font-bold mb-6 text-center primary-text">Edit Product</h2>
+                    <form id="edit-product-form" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-title">Product Title</label>
+                            <input type="text" id="product-title" value="${product.title}" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-description">Description</label>
+                            <textarea id="product-description" rows="4" required>${product.description}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-category">Category</label>
+                            <select id="product-category" required>
+                                ${categories.map(cat => `<option value="${cat}" ${cat === product.category ? 'selected' : ''}>${cat}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-600 mb-1" for="product-price">Price ($)</label>
+                            <input type="number" id="product-price" step="0.01" value="${product.price}" required>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">Save Changes</button>
+                    </form>
+                </div>
+            `;
+            document.getElementById('edit-product-form').onsubmit = (e) => {
+                e.preventDefault();
+                const updatedProduct = {
+                    id: product.id,
+                    userId: product.userId,
+                    title: document.getElementById('product-title').value,
+                    description: document.getElementById('product-description').value,
+                    category: document.getElementById('product-category').value,
+                    price: parseFloat(document.getElementById('product-price').value),
+                    image: product.image // Keep the existing image
+                };
+                const index = mockProducts.findIndex(p => p.id === updatedProduct.id);
+                if (index !== -1) {
+                    mockProducts[index] = updatedProduct;
+                    showModal('Product updated successfully!', () => navigate('my-listings'));
+                } else {
+                    showModal('Error: Product not found.');
+                }
+            };
+        }
+
+        function deleteProduct(id) {
+            mockProducts = mockProducts.filter(p => p.id !== id);
+            showModal('Product deleted successfully!', () => renderMyListings());
+        }
+
+        function renderProductDetail(id) {
+            const product = mockProducts.find(p => p.id === id);
+            if (!product) {
+                showModal('Product not found.', () => navigate('home'));
+                return;
+            }
+            content.innerHTML = `
+                <div class="max-w-4xl mx-auto p-4">
+                    <div class="card flex flex-col md:flex-row items-start space-y-6 md:space-y-0 md:space-x-8 p-8">
+                        <img src="${product.image}" alt="${product.title}" class="w-full md:w-1/2 rounded-2xl shadow-lg">
+                        <div class="flex-1 space-y-4">
+                            <h2 class="text-4xl font-bold primary-text">${product.title}</h2>
+                            <p class="text-3xl font-semibold text-gray-800">$${product.price.toFixed(2)}</p>
+                            <p class="text-gray-600"><span class="font-semibold">Category:</span> ${product.category}</p>
+                            <p class="text-gray-700">${product.description}</p>
+                            <button class="btn-primary w-full" onclick="addToCart('${product.id}')">Add to Cart</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addToCart(id) {
+            const product = mockProducts.find(p => p.id === id);
+            if (product) {
+                state.cart.push(product);
+                showModal(`Added "${product.title}" to cart!`, () => navigate('cart'));
+            }
+        }
+
+        function renderFavorites() {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to view your favorites.', () => navigate('login'));
+                return;
+            }
+            content.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 primary-text">My Favorites</h2>
+                <div id="favorites-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+            `;
+            const favoritesList = document.getElementById('favorites-list');
+            if (state.favorites.length === 0) {
+                favoritesList.innerHTML = '<p class="text-center text-gray-500 col-span-full">You have no favorite products. <a href="#" onclick="navigate(\'home\')" class="primary-text font-semibold">Browse and find some!</a></p>';
+            }
+            state.favorites.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'card relative';
+                card.innerHTML = `
+                    <button class="absolute top-4 right-4 z-10 text-2xl" onclick="event.stopPropagation(); toggleFavorite('${product.id}')">
+                        <i class="fa-solid fa-heart text-green-700"></i>
+                    </button>
+                    <img src="${product.image}" alt="${product.title}" class="w-full h-48 object-cover rounded-t-2xl mb-2">
+                    <div class="p-4">
+                        <h3 class="text-xl font-bold mb-1">${product.title}</h3>
+                        <p class="text-lg font-semibold primary-text">$${product.price.toFixed(2)}</p>
+                    </div>
+                `;
+                card.onclick = () => navigate('product-detail', { id: product.id });
+                favoritesList.appendChild(card);
+            });
+        }
+
+        function renderCart() {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to view your cart.', () => navigate('login'));
+                return;
+            }
+            content.innerHTML = `
+                <div class="p-8 max-w-4xl mx-auto">
+                    <h2 class="text-3xl font-bold mb-6 primary-text">My Cart</h2>
+                    <div id="cart-list" class="space-y-6"></div>
+                    <div class="mt-8 pt-4 border-t-2 border-gray-200 flex flex-col items-end">
+                        <p class="text-2xl font-bold">Total: $<span id="cart-total">0.00</span></p>
+                        <button class="btn-primary mt-4" onclick="checkout()">Checkout</button>
+                    </div>
+                </div>
+            `;
+            const cartList = document.getElementById('cart-list');
+            let total = 0;
+            if (state.cart.length === 0) {
+                cartList.innerHTML = '<p class="text-center text-gray-500">Your cart is empty. <a href="#" onclick="navigate(\'home\')" class="primary-text font-semibold">Browse products!</a></p>';
+            }
+            state.cart.forEach(item => {
+                total += item.price;
+                const cartItem = document.createElement('div');
+                cartItem.className = 'card flex items-center space-x-4 p-4';
+                cartItem.innerHTML = `
+                    <img src="${item.image}" class="w-20 h-20 rounded-xl object-cover">
+                    <div class="flex-1">
+                        <p class="font-bold">${item.title}</p>
+                        <p class="primary-text">$${item.price.toFixed(2)}</p>
+                    </div>
+                    <button class="text-red-500 hover:text-red-700" onclick="removeFromCart('${item.id}')">Remove</button>
+                `;
+                cartList.appendChild(cartItem);
+            });
+            document.getElementById('cart-total').textContent = total.toFixed(2);
+        }
+
+        function removeFromCart(id) {
+            state.cart = state.cart.filter(item => item.id !== id);
+            renderCart();
+        }
+
+        function checkout() {
+            if (state.cart.length === 0) {
+                showModal('Your cart is empty.');
+                return;
+            }
+            // Move cart items to previous purchases
+            state.previousPurchases = [...state.previousPurchases, ...state.cart];
+            state.cart = [];
+            showModal('Thank you for your purchase!', () => navigate('previous-purchases'));
+        }
+
+        function renderPreviousPurchases() {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to view your purchases.', () => navigate('login'));
+                return;
+            }
+            content.innerHTML = `
+                <h2 class="text-2xl font-bold mb-6 primary-text">Previous Purchases</h2>
+                <div id="purchases-list" class="space-y-4"></div>
+            `;
+            const purchasesList = document.getElementById('purchases-list');
+            if (state.previousPurchases.length === 0) {
+                purchasesList.innerHTML = '<p class="text-center text-gray-500">You have no past purchases.</p>';
+            }
+            state.previousPurchases.forEach(item => {
+                const purchaseItem = document.createElement('div');
+                purchaseItem.className = 'card flex items-center space-x-4 p-4';
+                purchaseItem.innerHTML = `
+                    <img src="${item.image}" class="w-20 h-20 rounded-xl object-cover">
+                    <div class="flex-1">
+                        <p class="font-bold">${item.title}</p>
+                        <p class="primary-text">$${item.price.toFixed(2)}</p>
+                        <p class="text-sm text-gray-500">Purchased on: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                `;
+                purchasesList.appendChild(purchaseItem);
+            });
+        }
+
+        function renderUserDashboard() {
+            if (!state.isAuthenticated) {
+                showModal('Please log in to view your dashboard.', () => navigate('login'));
+                return;
+            }
+            content.innerHTML = `
+                <div class="max-w-xl mx-auto p-4">
+                    <h2 class="text-3xl font-bold mb-6 text-center primary-text">User Dashboard</h2>
+                    <div class="card p-6">
+                        <p class="mb-4 text-center">
+                            <span class="text-6xl" role="img" aria-label="user icon">👤</span>
+                        </p>
+                        <form id="dashboard-form" class="space-y-4">
+                            <div>
+                                <label class="block text-gray-600 mb-1" for="user-username">Username</label>
+                                <input type="text" id="user-username" value="${state.currentUser.username}" required>
+                            </div>
+                            <div>
+                                <label class="block text-gray-600 mb-1" for="user-email">Email</label>
+                                <input type="email" id="user-email" value="${state.currentUser.email}" disabled>
+                            </div>
+                            <div>
+                                <label class="block text-gray-600 mb-1" for="user-bio">Bio</label>
+                                <textarea id="user-bio" rows="4">${state.currentUser.bio}</textarea>
+                            </div>
+                            <button type="submit" class="btn-primary w-full">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.getElementById('dashboard-form').onsubmit = (e) => {
+                e.preventDefault();
+                state.currentUser.username = document.getElementById('user-username').value;
+                state.currentUser.bio = document.getElementById('user-bio').value;
+                showModal('Profile updated successfully!', () => navigate('user-dashboard'));
+            };
+        }
+
+        // Initial render on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // First, show the splash screen
+            setTimeout(() => {
+                splashScreen.classList.add('hidden-transition');
+                setTimeout(() => {
+                    splashScreen.classList.add('hidden');
+                    app.classList.remove('hidden');
+                    app.classList.remove('hidden-transition');
+                    navigate('login'); // Then navigate to the login page
+                }, 1000); // Wait for the fade-out to complete
+            }, 2000); // Show splash screen for 2 seconds
+        });
+    </script>
+</body>
+</html>
